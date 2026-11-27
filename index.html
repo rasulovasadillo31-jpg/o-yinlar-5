@@ -1,0 +1,2037 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARCADE 5X — Classic Arcade Games Portal</title>
+
+  <!-- Google Fonts: Orbitron for arcade headers & Inter/JetBrains Mono for crisp UI/scores -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700;800&family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet" />
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+  <!-- Tailwind CSS + DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet" type="text/css" />
+
+  <!-- Morris.js CSS (requires Raphael.js + jQuery) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/morris.js/0.5.1/morris.css" />
+
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+  <!-- Raphael.js & Morris.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/morris.js/0.5.1/morris.min.js"></script>
+
+  <!-- CanvasJS -->
+  <script src="https://cdn.canvasjs.com/canvasjs.min.js"></script>
+
+  <!-- Bootstrap 5 Bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            arcade: ['Orbitron', 'sans-serif'],
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    /* Custom arcade styling for tactile polish, neon borders, and responsive canvas scaling */
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #070b14;
+      background-image:
+        radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.14), transparent 35%),
+        radial-gradient(circle at 85% 15%, rgba(236, 72, 153, 0.14), transparent 35%),
+        radial-gradient(circle at 50% 90%, rgba(34, 197, 94, 0.10), transparent 40%);
+      color: #f1f5f9;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .font-arcade {
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    .font-mono-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .arcade-shell {
+      background: rgba(13, 20, 36, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(12px);
+    }
+
+    .game-stage-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 780px;
+      aspect-ratio: 780 / 450;
+      margin: 0 auto;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 2px solid rgba(56, 189, 248, 0.45);
+      box-shadow: 0 0 32px rgba(14, 165, 233, 0.22), inset 0 0 24px rgba(0, 0, 0, 0.65);
+      background: #060911;
+    }
+
+    canvas.game-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .game-tab-btn {
+      transition: transform 0.14s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .game-tab-btn:active {
+      transform: translateY(2px) scale(0.98);
+    }
+
+    .game-tab-btn.active-game {
+      background: linear-gradient(135deg, #0284c7 0%, #7c3aed 100%);
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.45);
+    }
+
+    .arcade-pad-btn {
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      box-shadow: 0 4px 0 #020617, 0 8px 16px rgba(0, 0, 0, 0.4);
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .arcade-pad-btn:active,
+    .arcade-pad-btn.pressed {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #020617;
+      background: linear-gradient(180deg, #0284c7 0%, #0369a1 100%);
+      border-color: #7dd3fc;
+    }
+
+    /* Morris.js dark theme adjustments */
+    #morris-session-chart svg text {
+      fill: #cbd5e1 !important;
+      font-family: 'JetBrains Mono', monospace !important;
+      font-size: 11px !important;
+    }
+
+    .morris-hover {
+      background: rgba(15, 23, 42, 0.95) !important;
+      border: 1px solid rgba(56, 189, 248, 0.5) !important;
+      color: #f8fafc !important;
+      border-radius: 10px !important;
+      padding: 8px 12px !important;
+      font-family: 'Inter', sans-serif !important;
+    }
+
+    .overlay-badge-enter {
+      animation: popIn 0.2s ease-out forwards;
+    }
+
+    @keyframes popIn {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+  </style>
+</head>
+<body class="py-3 px-2 sm:px-4 md:px-6">
+  <div class="max-w-7xl mx-auto space-y-4">
+
+    <!-- TOP NAVBAR & BRAND HEADER -->
+    <header class="arcade-shell rounded-2xl p-3 sm:p-4">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-600 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-cyan-500/25 shrink-0">
+            <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="2" y="6" width="20" height="12" rx="4" />
+              <path d="M6 12h4M8 10v4" stroke-linecap="round" />
+              <circle cx="15.5" cy="10.5" r="1.2" fill="currentColor" />
+              <circle cx="18" cy="13" r="1.2" fill="currentColor" />
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 class="font-arcade text-xl sm:text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-sky-400 to-fuchsia-400">
+                ARCADE 5X
+              </h1>
+              <span class="badge badge-info badge-sm font-semibold">5 CLASSIC GAMES</span>
+              <span class="badge badge-outline badge-success badge-sm hidden sm:inline-flex">LOCAL HIGH SCORES</span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-400">
+              Big bold graphics, instant arcade action, keyboard + touch controls, and live score analytics.
+            </p>
+          </div>
+        </div>
+
+        <!-- Quick Total Points & Reset High Scores -->
+        <div class="flex items-center justify-between lg:justify-end gap-2 sm:gap-3">
+          <div class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-2 flex items-center gap-3">
+            <div>
+              <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Combined Best</div>
+              <div id="combined-high-score" class="font-mono-num text-base sm:text-lg font-extrabold text-amber-400">0</div>
+            </div>
+            <div class="h-7 w-px bg-slate-700"></div>
+            <div>
+              <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Plays</div>
+              <div id="total-plays-count" class="font-mono-num text-base sm:text-lg font-extrabold text-cyan-400">0</div>
+            </div>
+          </div>
+
+          <button id="btn-reset-records" type="button" class="btn btn-sm sm:btn-md btn-outline btn-warning rounded-xl font-semibold" title="Reset all saved high scores and chart history">
+            Reset Records
+          </button>
+        </div>
+      </div>
+
+      <!-- 5-GAME SWITCHER TABS / BUTTONS -->
+      <nav aria-label="Arcade Games Switcher" class="mt-4 pt-3 border-t border-slate-800/90">
+        <div id="game-switcher" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          <button type="button" data-game="turbo" class="game-tab-btn active-game rounded-xl border border-slate-700 bg-slate-900/90 px-3 py-2.5 text-left">
+            <div class="flex items-center justify-between">
+              <span class="font-arcade text-xs sm:text-sm font-bold">1. TURBO LANE</span>
+              <span class="text-base" aria-hidden="true">🏎️</span>
+            </div>
+            <div class="text-[11px] text-slate-300/85 mt-0.5">Highway Car Dodger</div>
+          </button>
+
+          <button type="button" data-game="snake" class="game-tab-btn rounded-xl border border-slate-700 bg-slate-900/90 px-3 py-2.5 text-left hover:border-cyan-500/60">
+            <div class="flex items-center justify-between">
+              <span class="font-arcade text-xs sm:text-sm font-bold">2. NEON SNAKE</span>
+              <span class="text-base" aria-hidden="true">🐍</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-0.5">Classic Grid Crawler</div>
+          </button>
+
+          <button type="button" data-game="brick" class="game-tab-btn rounded-xl border border-slate-700 bg-slate-900/90 px-3 py-2.5 text-left hover:border-cyan-500/60">
+            <div class="flex items-center justify-between">
+              <span class="font-arcade text-xs sm:text-sm font-bold">3. BRICK SMASH</span>
+              <span class="text-base" aria-hidden="true">🧱</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-0.5">Arcade Brick Breaker</div>
+          </button>
+
+          <button type="button" data-game="hopper" class="game-tab-btn rounded-xl border border-slate-700 bg-slate-900/90 px-3 py-2.5 text-left hover:border-cyan-500/60">
+            <div class="flex items-center justify-between">
+              <span class="font-arcade text-xs sm:text-sm font-bold">4. SKY HOPPER</span>
+              <span class="text-base" aria-hidden="true">🚀</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-0.5">Pillar Flap Dodger</div>
+          </button>
+
+          <button type="button" data-game="blitz" class="game-tab-btn col-span-2 sm:col-span-1 rounded-xl border border-slate-700 bg-slate-900/90 px-3 py-2.5 text-left hover:border-cyan-500/60">
+            <div class="flex items-center justify-between">
+              <span class="font-arcade text-xs sm:text-sm font-bold">5. AIM BLITZ</span>
+              <span class="text-base" aria-hidden="true">🎯</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-0.5">Timed Target Reflex</div>
+          </button>
+        </div>
+      </nav>
+    </header>
+
+    <!-- MAIN CONTENT GRID: GAME STAGE (LEFT/MAIN) + ANALYTICS & RECORDS (RIGHT) -->
+    <main class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+
+      <!-- ACTIVE GAME CONSOLE (8 cols on XL) -->
+      <section class="xl:col-span-8 arcade-shell rounded-2xl p-3 sm:p-5 space-y-4">
+
+        <!-- GAME HEADER, SCOREBOARD & ACTION CONTROLS -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-slate-950/75 border border-slate-800 rounded-xl p-3 sm:px-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="active-game-title" class="font-arcade text-lg sm:text-2xl font-extrabold text-white tracking-wide">
+                TURBO LANE
+              </h2>
+              <span id="active-game-status-pill" class="badge badge-success badge-sm font-bold">READY</span>
+            </div>
+            <p id="active-game-subtitle" class="text-xs sm:text-sm text-slate-400 mt-0.5">
+              Weave through highway traffic, grab glowing boost coins, and survive at rising speed!
+            </p>
+          </div>
+
+          <!-- Score, High Score, Pause/Resume, Restart -->
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div class="bg-slate-900 border border-cyan-500/35 rounded-xl px-3 py-1.5 min-w-[84px]">
+              <div class="text-[10px] uppercase tracking-wider text-cyan-300 font-bold">Score</div>
+              <div id="hud-score" class="font-mono-num text-xl font-extrabold text-white">0</div>
+            </div>
+
+            <div class="bg-slate-900 border border-amber-500/35 rounded-xl px-3 py-1.5 min-w-[84px]">
+              <div class="text-[10px] uppercase tracking-wider text-amber-300 font-bold">High Score</div>
+              <div id="hud-high-score" class="font-mono-num text-xl font-extrabold text-amber-400">0</div>
+            </div>
+
+            <button id="btn-pause-toggle" type="button" class="btn btn-sm sm:btn-md btn-info rounded-xl font-bold text-slate-950">
+              Pause
+            </button>
+
+            <button id="btn-restart-game" type="button" class="btn btn-sm sm:btn-md btn-success rounded-xl font-bold text-slate-950">
+              Restart
+            </button>
+          </div>
+        </div>
+
+        <!-- CLEAR RULES BANNER -->
+        <div id="rules-banner" class="rounded-xl bg-gradient-to-r from-sky-950/80 via-indigo-950/70 to-fuchsia-950/70 border border-sky-500/30 px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div class="flex items-start sm:items-center gap-2.5 text-xs sm:text-sm text-slate-200">
+            <span class="badge badge-info badge-sm font-bold mt-0.5 sm:mt-0 shrink-0">RULES</span>
+            <span id="active-game-rules">
+              Use <strong>Left/Right Arrows</strong> or <strong>A/D</strong> (or on-screen buttons) to switch lanes. Dodge rival cars (+10 pts per pass) and collect gold boost coins (+25 pts).
+            </span>
+          </div>
+          <span id="active-game-controls-hint" class="text-[11px] font-mono-num text-cyan-300 shrink-0">
+            Keys: ← → / A / D
+          </span>
+        </div>
+
+        <!-- LARGE RESPONSIVE CANVAS STAGE -->
+        <div class="game-stage-wrap">
+          <canvas id="arcade-canvas" class="game-canvas"></canvas>
+
+          <!-- Start / Pause / Game Over Overlay -->
+          <div id="stage-overlay" class="absolute inset-0 bg-slate-950/80 backdrop-blur-[3px] flex flex-col items-center justify-center p-4 text-center z-10">
+            <div class="overlay-badge-enter max-w-md bg-slate-900/95 border-2 border-cyan-400/50 rounded-2xl p-5 sm:p-6 shadow-2xl">
+              <div id="overlay-kicker" class="text-xs font-arcade uppercase tracking-widest text-cyan-400 mb-1">
+                CLASSIC ARCADE MODE
+              </div>
+              <h3 id="overlay-title" class="font-arcade text-2xl sm:text-3xl font-black text-white mb-2">
+                TURBO LANE
+              </h3>
+              <p id="overlay-message" class="text-xs sm:text-sm text-slate-300 mb-4">
+                Press Start or press Space / Arrow keys to hit the highway!
+              </p>
+              <div id="overlay-final-stats" class="hidden grid grid-cols-2 gap-2 mb-4 bg-slate-950 rounded-xl p-2.5 border border-slate-800">
+                <div>
+                  <div class="text-[10px] uppercase text-slate-400">Final Score</div>
+                  <div id="overlay-score-val" class="font-mono-num text-lg font-extrabold text-cyan-400">0</div>
+                </div>
+                <div>
+                  <div class="text-[10px] uppercase text-slate-400">Best Score</div>
+                  <div id="overlay-best-val" class="font-mono-num text-lg font-extrabold text-amber-400">0</div>
+                </div>
+              </div>
+              <button id="btn-overlay-action" type="button" class="btn btn-primary btn-md sm:btn-lg w-full font-arcade font-bold rounded-xl shadow-lg shadow-cyan-500/25">
+                START GAME
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ON-SCREEN ARCADE TOUCH / CLICK CONTROLS (ADAPTIVE PER GAME) -->
+        <div id="touch-controls-bar" class="bg-slate-950/75 border border-slate-800 rounded-xl p-3">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              On-Screen Arcade Controls
+            </span>
+            <span class="text-[11px] text-slate-400">
+              Works with Mouse Click, Touch &amp; Keyboard
+            </span>
+          </div>
+
+          <!-- Controls for Turbo Lane & Brick Smash (Left / Right) -->
+          <div id="pad-leftright" class="grid grid-cols-2 gap-3 max-w-md mx-auto">
+            <button type="button" data-pad="left" class="arcade-pad-btn rounded-xl py-3.5 px-4 font-arcade text-sm sm:text-base font-bold text-cyan-300 flex items-center justify-center gap-2">
+              <span>◀</span> <span>LEFT</span>
+            </button>
+            <button type="button" data-pad="right" class="arcade-pad-btn rounded-xl py-3.5 px-4 font-arcade text-sm sm:text-base font-bold text-cyan-300 flex items-center justify-center gap-2">
+              <span>RIGHT</span> <span>▶</span>
+            </button>
+          </div>
+
+          <!-- D-Pad for Neon Snake (Up / Down / Left / Right) -->
+          <div id="pad-dpad" class="hidden max-w-xs mx-auto flex flex-col items-center gap-2">
+            <button type="button" data-pad="up" class="arcade-pad-btn w-24 rounded-xl py-2.5 font-arcade text-xs font-bold text-emerald-300">
+              ▲ UP
+            </button>
+            <div class="flex items-center justify-center gap-2 w-full">
+              <button type="button" data-pad="left" class="arcade-pad-btn flex-1 rounded-xl py-2.5 font-arcade text-xs font-bold text-emerald-300">
+                ◀ LEFT
+              </button>
+              <button type="button" data-pad="down" class="arcade-pad-btn flex-1 rounded-xl py-2.5 font-arcade text-xs font-bold text-emerald-300">
+                ▼ DOWN
+              </button>
+              <button type="button" data-pad="right" class="arcade-pad-btn flex-1 rounded-xl py-2.5 font-arcade text-xs font-bold text-emerald-300">
+                RIGHT ▶
+              </button>
+            </div>
+          </div>
+
+          <!-- Flap / Thrust button for Sky Hopper -->
+          <div id="pad-flap" class="hidden max-w-md mx-auto">
+            <button type="button" data-pad="flap" class="arcade-pad-btn w-full rounded-xl py-3.5 px-4 font-arcade text-sm sm:text-base font-bold text-fuchsia-300">
+              🚀 THRUST / HOP (SPACE / UP / TAP)
+            </button>
+          </div>
+
+          <!-- Info note for Aim Blitz -->
+          <div id="pad-blitz" class="hidden text-center py-2 text-xs sm:text-sm text-amber-300 font-medium">
+            🎯 Click or tap glowing targets directly inside the arena before the timer expires!
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT ANALYTICS & HIGH SCORES PANEL (4 cols on XL) -->
+      <aside class="xl:col-span-4 space-y-4">
+
+        <!-- HIGH SCORES LEADERBOARD CARD -->
+        <div class="arcade-shell rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-arcade text-sm sm:text-base font-bold text-amber-300 tracking-wide">
+              HIGH SCORE VAULT
+            </h3>
+            <span class="badge badge-warning badge-xs font-bold">SAVED</span>
+          </div>
+
+          <div id="leaderboard-list" class="space-y-2">
+            <!-- Populated dynamically via jQuery -->
+          </div>
+        </div>
+
+        <!-- CANVASJS LIVE PERFORMANCE / SCORE TREND CHART -->
+        <div class="arcade-shell rounded-2xl p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="font-arcade text-sm font-bold text-cyan-300 tracking-wide">
+              CANVASJS SCORE TREND
+            </h3>
+            <span class="text-[11px] font-mono-num text-slate-400">LIVE FEED</span>
+          </div>
+          <p class="text-xs text-slate-400">
+            Recent run scores plotted dynamically as you play across all 5 games.
+          </p>
+          <div id="canvasjs-score-chart" class="w-full h-52 rounded-xl overflow-hidden bg-slate-950/70 border border-slate-800"></div>
+        </div>
+
+        <!-- MORRIS.JS SESSION SCORES BY GAME CHART -->
+        <div class="arcade-shell rounded-2xl p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="font-arcade text-sm font-bold text-fuchsia-300 tracking-wide">
+              MORRIS.JS BEST BY GAME
+            </h3>
+            <span class="text-[11px] font-mono-num text-slate-400">BAR ANALYTICS</span>
+          </div>
+          <p class="text-xs text-slate-400">
+            Comparison of your top scores across Turbo Lane, Snake, Brick Smash, Sky Hopper, and Aim Blitz.
+          </p>
+          <div id="morris-session-chart" class="w-full h-52 rounded-xl bg-slate-950/70 border border-slate-800 p-1"></div>
+        </div>
+
+      </aside>
+    </main>
+
+    <!-- Bootstrap Toast / Status Notification Area (No alert() used anywhere) -->
+    <div id="arcade-toast" class="fixed bottom-4 right-4 z-50 hidden">
+      <div class="bg-slate-900 border border-cyan-400/60 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-xs sm:text-sm">
+        <span class="text-cyan-400 font-bold">★</span>
+        <span id="arcade-toast-msg">Records updated!</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /**
+     * ARCADE 5X Engine & Analytics Controller
+     * Implements 5 complete classic arcade games on a unified responsive HTML5 Canvas stage:
+     * 1. Turbo Lane (Classic Highway Car Racing / Dodger + Coins)
+     * 2. Neon Snake (Classic Grid Snake + Bonus Fruit + Speed Scaling)
+     * 3. Brick Smash (Classic Arkanoid / Brick Breaker + Angle Bounce)
+     * 4. Sky Hopper (Classic Pillar Flap Dodger + Gravity + Score)
+     * 5. Aim Blitz (Classic Timed Target Reflex & Accuracy Arcade)
+     *
+     * Integrates jQuery UI bindings, Bootstrap/Tailwind/DaisyUI components,
+     * CanvasJS trend chart, and Morris.js best-score bar chart.
+     */
+    (function ($) {
+      'use strict';
+
+      // Canonical logical resolution for crisp sprite/geometry scaling
+      const STAGE_W = 780;
+      const STAGE_H = 450;
+      const STORAGE_KEY = 'arcade5x_state_v1';
+
+      const GAME_META = {
+        turbo: {
+          name: 'TURBO LANE',
+          subtitle: 'Weave through multi-lane highway traffic, collect boost coins, and beat the speed surge!',
+          rules: 'Steer with <strong>Left/Right Arrows</strong> or <strong>A/D</strong> (or on-screen buttons). Dodge traffic cars (+15 pts per car passed) and grab gold coins (+30 pts).',
+          controlsHint: 'Keys: ← → / A / D',
+          padType: 'leftright',
+          shortLabel: 'Turbo Lane',
+          icon: '🏎️',
+          color: '#38bdf8'
+        },
+        snake: {
+          name: 'NEON SNAKE',
+          subtitle: 'Classic arcade snake with glowing segments, high-value bonus stars, and rising speed.',
+          rules: 'Turn with <strong>Arrow Keys</strong> or <strong>WASD</strong> (or D-pad). Eat glowing food (+20 pts) and bonus stars (+50 pts). Avoid walls and your own tail!',
+          controlsHint: 'Keys: ↑ ↓ ← → / WASD',
+          padType: 'dpad',
+          shortLabel: 'Neon Snake',
+          icon: '🐍',
+          color: '#34d399'
+        },
+        brick: {
+          name: 'BRICK SMASH',
+          subtitle: 'Classic brick-breaker action with angled paddle rebounds and multi-color brick rows.',
+          rules: 'Move paddle with <strong>Left/Right Arrows</strong>, <strong>A/D</strong>, <strong>Mouse/Touch</strong>, or buttons. Smash all bricks (+25 pts each) without dropping the ball!',
+          controlsHint: 'Keys: ← → / A / D / Mouse',
+          padType: 'leftright',
+          shortLabel: 'Brick Smash',
+          icon: '🧱',
+          color: '#f472b6'
+        },
+        hopper: {
+          name: 'SKY HOPPER',
+          subtitle: 'Crisp arcade timing: hop through neon sky gates with classic gravity and momentum.',
+          rules: 'Press <strong>Space</strong>, <strong>Up/W</strong>, or <strong>Click/Tap</strong> (or Thrust button) to hop between moving pillars. Earn +20 pts for every clean gate cleared!',
+          controlsHint: 'Keys: Space / ↑ / W / Click',
+          padType: 'flap',
+          shortLabel: 'Sky Hopper',
+          icon: '🚀',
+          color: '#a78bfa'
+        },
+        blitz: {
+          name: 'AIM BLITZ',
+          subtitle: '30-second high-speed target arcade: hit standard & golden moving targets before time runs out!',
+          rules: '<strong>Click or tap</strong> targets inside the arena before the 30s clock hits zero. Standard targets = +20 pts, fast golden targets = +50 pts, misses cost -10 pts.',
+          controlsHint: 'Input: Click / Tap Targets',
+          padType: 'blitz',
+          shortLabel: 'Aim Blitz',
+          icon: '🎯',
+          color: '#fbbf24'
+        }
+      };
+
+      // Persistent state loaded from localStorage with safe fallback
+      function loadPersistentState() {
+        const defaultState = {
+          highScores: {
+            turbo: 0,
+            snake: 0,
+            brick: 0,
+            hopper: 0,
+            blitz: 0
+          },
+          totalPlays: 0,
+          history: [
+            { run: 1, game: 'Turbo Lane', score: 0 },
+            { run: 2, game: 'Neon Snake', score: 0 },
+            { run: 3, game: 'Brick Smash', score: 0 },
+            { run: 4, game: 'Sky Hopper', score: 0 },
+            { run: 5, game: 'Aim Blitz', score: 0 }
+          ]
+        };
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return defaultState;
+          const parsed = JSON.parse(raw);
+          return {
+            highScores: Object.assign({}, defaultState.highScores, parsed.highScores || {}),
+            totalPlays: Number(parsed.totalPlays) || 0,
+            history: Array.isArray(parsed.history) && parsed.history.length ? parsed.history.slice(-14) : defaultState.history
+          };
+        } catch (err) {
+          console.warn('Could not load saved state:', err);
+          return defaultState;
+        }
+      }
+
+      function savePersistentState() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+        } catch (err) {
+          console.warn('Could not save state:', err);
+        }
+      }
+
+      let appState = loadPersistentState();
+      let currentGameId = 'turbo';
+      let runCounter = appState.history.length ? appState.history[appState.history.length - 1].run : 5;
+
+      // Shared runtime state for active game
+      const runtime = {
+        score: 0,
+        phase: 'idle', // 'idle' | 'playing' | 'paused' | 'gameover'
+        keys: {},
+        particles: [],
+        floatingTexts: []
+      };
+
+      // Canvas setup with crisp scaling
+      const canvas = document.getElementById('arcade-canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = STAGE_W;
+      canvas.height = STAGE_H;
+
+      // Charts instances
+      let canvasJsChart = null;
+      let morrisChart = null;
+
+      function showToast(message) {
+        $('#arcade-toast-msg').text(message);
+        const $toast = $('#arcade-toast');
+        $toast.stop(true, true).fadeIn(180).delay(2200).fadeOut(300);
+      }
+
+      // Particle & Floating Text helper effects across games
+      function spawnBurst(x, y, color, count = 14, speedScale = 1) {
+        for (let i = 0; i < count; i++) {
+          const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+          const speed = (1.6 + Math.random() * 3.8) * speedScale;
+          runtime.particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            radius: 3 + Math.random() * 4,
+            color,
+            alpha: 1,
+            life: 24 + Math.floor(Math.random() * 16)
+          });
+        }
+      }
+
+      function spawnFloatingText(x, y, text, color = '#38bdf8') {
+        runtime.floatingTexts.push({
+          x,
+          y,
+          vy: -1.3,
+          text,
+          color,
+          alpha: 1,
+          life: 38
+        });
+      }
+
+      function updateEffects() {
+        for (let i = runtime.particles.length - 1; i >= 0; i--) {
+          const p = runtime.particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vx *= 0.96;
+          p.vy *= 0.96;
+          p.life--;
+          p.alpha = Math.max(0, p.life / 35);
+          if (p.life <= 0) runtime.particles.splice(i, 1);
+        }
+
+        for (let i = runtime.floatingTexts.length - 1; i >= 0; i--) {
+          const ft = runtime.floatingTexts[i];
+          ft.y += ft.vy;
+          ft.life--;
+          ft.alpha = Math.max(0, ft.life / 38);
+          if (ft.life <= 0) runtime.floatingTexts.splice(i, 1);
+        }
+      }
+
+      function drawEffects() {
+        for (const p of runtime.particles) {
+          ctx.save();
+          ctx.globalAlpha = p.alpha;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        for (const ft of runtime.floatingTexts) {
+          ctx.save();
+          ctx.globalAlpha = ft.alpha;
+          ctx.font = '800 16px "JetBrains Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#020617';
+          ctx.fillText(ft.text, ft.x + 1.5, ft.y + 1.5);
+          ctx.fillStyle = ft.color;
+          ctx.fillText(ft.text, ft.x, ft.y);
+          ctx.restore();
+        }
+      }
+
+      // Update live Score & High Score HUD
+      function syncHud() {
+        const best = appState.highScores[currentGameId] || 0;
+        $('#hud-score').text(runtime.score);
+        $('#hud-high-score').text(best);
+
+        const combinedBest = Object.values(appState.highScores).reduce((sum, val) => sum + (Number(val) || 0), 0);
+        $('#combined-high-score').text(combinedBest);
+        $('#total-plays-count').text(appState.totalPlays);
+
+        const $pill = $('#active-game-status-pill');
+        $pill.removeClass('badge-success badge-info badge-warning badge-error');
+        if (runtime.phase === 'playing') {
+          $pill.addClass('badge-success').text('LIVE');
+          $('#btn-pause-toggle').text('Pause');
+        } else if (runtime.phase === 'paused') {
+          $pill.addClass('badge-warning').text('PAUSED');
+          $('#btn-pause-toggle').text('Resume');
+        } else if (runtime.phase === 'gameover') {
+          $pill.addClass('badge-error').text('GAME OVER');
+          $('#btn-pause-toggle').text('Pause');
+        } else {
+          $pill.addClass('badge-info').text('READY');
+          $('#btn-pause-toggle').text('Pause');
+        }
+      }
+
+      function addScore(points, fxX, fxY, fxColor) {
+        runtime.score = Math.max(0, runtime.score + points);
+        if (runtime.score > (appState.highScores[currentGameId] || 0)) {
+          appState.highScores[currentGameId] = runtime.score;
+          savePersistentState();
+        }
+        if (typeof fxX === 'number' && typeof fxY === 'number') {
+          const sign = points >= 0 ? `+${points}` : `${points}`;
+          spawnFloatingText(fxX, fxY, sign, fxColor || (points >= 0 ? '#34d399' : '#f87171'));
+        }
+        syncHud();
+      }
+
+      // Render Leaderboard cards via jQuery
+      function renderLeaderboard() {
+        const order = ['turbo', 'snake', 'brick', 'hopper', 'blitz'];
+        const sorted = [...order].sort((a, b) => (appState.highScores[b] || 0) - (appState.highScores[a] || 0));
+        const $list = $('#leaderboard-list').empty();
+
+        sorted.forEach((gameKey, idx) => {
+          const meta = GAME_META[gameKey];
+          const best = appState.highScores[gameKey] || 0;
+          const isCurrent = gameKey === currentGameId;
+          const rankBadge = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+
+          const $row = $(`
+            <div class="flex items-center justify-between rounded-xl px-3 py-2 border transition cursor-pointer ${
+              isCurrent
+                ? 'bg-sky-950/60 border-sky-400/60'
+                : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+            }">
+              <div class="flex items-center gap-2.5">
+                <span class="font-mono-num text-xs font-bold w-6 text-center text-slate-300">${rankBadge}</span>
+                <span class="text-lg" aria-hidden="true">${meta.icon}</span>
+                <div>
+                  <div class="text-xs sm:text-sm font-bold text-white">${meta.shortLabel}</div>
+                  <div class="text-[10px] text-slate-400">${isCurrent ? 'Active Stage' : 'Click to switch'}</div>
+                </div>
+              </div>
+              <div class="font-mono-num text-sm sm:text-base font-extrabold text-amber-400">${best}</div>
+            </div>
+          `);
+
+          $row.on('click', function () {
+            selectGame(gameKey);
+          });
+
+          $list.append($row);
+        });
+      }
+
+      // Render CanvasJS Score Trend Chart
+      function renderCanvasJsChart() {
+        const dataPoints = appState.history.map((item, idx) => ({
+          x: idx + 1,
+          y: Number(item.score) || 0,
+          label: `#${item.run} ${item.game}`
+        }));
+
+        canvasJsChart = new CanvasJS.Chart('canvasjs-score-chart', {
+          animationEnabled: true,
+          backgroundColor: 'transparent',
+          theme: 'dark2',
+          axisX: {
+            title: 'Recent Runs',
+            titleFontColor: '#94a3b8',
+            labelFontColor: '#cbd5e1',
+            lineColor: '#334155',
+            tickColor: '#334155',
+            interval: 1
+          },
+          axisY: {
+            title: 'Score',
+            titleFontColor: '#94a3b8',
+            labelFontColor: '#38bdf8',
+            gridColor: '#1e293b',
+            lineColor: '#334155',
+            minimum: 0
+          },
+          toolTip: {
+            backgroundColor: '#0f172a',
+            borderColor: '#38bdf8',
+            fontColor: '#f8fafc',
+            content: '{label}: <strong>{y} pts</strong>'
+          },
+          data: [{
+            type: 'splineArea',
+            color: '#38bdf8',
+            fillOpacity: 0.25,
+            lineThickness: 3,
+            markerSize: 7,
+            markerColor: '#f472b6',
+            dataPoints: dataPoints
+          }]
+        });
+        canvasJsChart.render();
+      }
+
+      // Render Morris.js Best Score by Game Bar Chart
+      function renderMorrisChart() {
+        $('#morris-session-chart').empty();
+        const morrisData = [
+          { game: 'Turbo', best: Number(appState.highScores.turbo) || 0 },
+          { game: 'Snake', best: Number(appState.highScores.snake) || 0 },
+          { game: 'Brick', best: Number(appState.highScores.brick) || 0 },
+          { game: 'Hopper', best: Number(appState.highScores.hopper) || 0 },
+          { game: 'Blitz', best: Number(appState.highScores.blitz) || 0 }
+        ];
+
+        try {
+          morrisChart = new Morris.Bar({
+            element: 'morris-session-chart',
+            data: morrisData,
+            xkey: 'game',
+            ykeys: ['best'],
+            labels: ['Best Score'],
+            barColors: ['#8b5cf6'],
+            gridTextColor: '#cbd5e1',
+            gridLineColor: '#1e293b',
+            hideHover: 'auto',
+            resize: true
+          });
+        } catch (err) {
+          console.warn('Morris chart render fallback:', err);
+        }
+      }
+
+      function refreshAnalytics() {
+        renderLeaderboard();
+        renderCanvasJsChart();
+        renderMorrisChart();
+      }
+
+      // Record completed run into analytics
+      function recordGameRun(gameId, finalScore) {
+        appState.totalPlays += 1;
+        if (finalScore > (appState.highScores[gameId] || 0)) {
+          appState.highScores[gameId] = finalScore;
+        }
+        runCounter += 1;
+        appState.history.push({
+          run: runCounter,
+          game: GAME_META[gameId].shortLabel,
+          score: finalScore
+        });
+        if (appState.history.length > 14) {
+          appState.history = appState.history.slice(-14);
+        }
+        savePersistentState();
+        refreshAnalytics();
+        syncHud();
+      }
+
+      // Overlay display helpers
+      function showOverlay(kicker, title, message, buttonText, isGameOver = false) {
+        $('#overlay-kicker').text(kicker);
+        $('#overlay-title').text(title);
+        $('#overlay-message').text(message);
+        $('#btn-overlay-action').text(buttonText);
+
+        if (isGameOver) {
+          $('#overlay-score-val').text(runtime.score);
+          $('#overlay-best-val').text(appState.highScores[currentGameId] || 0);
+          $('#overlay-final-stats').removeClass('hidden');
+        } else {
+          $('#overlay-final-stats').addClass('hidden');
+        }
+        $('#stage-overlay').removeClass('hidden').addClass('flex');
+      }
+
+      function hideOverlay() {
+        $('#stage-overlay').addClass('hidden').removeClass('flex');
+      }
+
+      function triggerGameOver(reasonText) {
+        if (runtime.phase === 'gameover') return;
+        runtime.phase = 'gameover';
+        recordGameRun(currentGameId, runtime.score);
+        showOverlay(
+          'RUN COMPLETE',
+          'GAME OVER',
+          reasonText || 'Great run! Ready for another round?',
+          'PLAY AGAIN',
+          true
+        );
+      }
+
+      // =========================================================================
+      // GAME 1: TURBO LANE (Classic Highway Car Racing / Dodger + Boost Coins)
+      // =========================================================================
+      const turboGame = (() => {
+        const roadLeft = 175;
+        const roadWidth = 430;
+        const laneCount = 4;
+        const laneWidth = roadWidth / laneCount;
+
+        let car = { x: STAGE_W / 2 - 24, y: STAGE_H - 105, w: 48, h: 82, speed: 6.2 };
+        let roadScroll = 0;
+        let baseSpeed = 5.2;
+        let traffic = [];
+        let coins = [];
+        let spawnTimer = 0;
+        let coinTimer = 0;
+
+        function init() {
+          car = { x: roadLeft + laneWidth * 1.5 - 24, y: STAGE_H - 105, w: 48, h: 82, speed: 6.5 };
+          roadScroll = 0;
+          baseSpeed = 5.4;
+          traffic = [];
+          coins = [];
+          spawnTimer = 25;
+          coinTimer = 55;
+        }
+
+        function spawnTrafficCar() {
+          const lane = Math.floor(Math.random() * laneCount);
+          const carW = 46;
+          const carH = 78;
+          const x = roadLeft + lane * laneWidth + (laneWidth - carW) / 2;
+          // Prevent overlapping right on top of an existing car at top
+          const tooClose = traffic.some(t => t.lane === lane && t.y < 120);
+          if (tooClose) return;
+
+          const palette = ['#ef4444', '#f97316', '#eab308', '#a855f7', '#10b981'];
+          traffic.push({
+            lane,
+            x,
+            y: -carH - 10,
+            w: carW,
+            h: carH,
+            speed: baseSpeed * (0.72 + Math.random() * 0.35),
+            color: palette[Math.floor(Math.random() * palette.length)],
+            passed: false
+          });
+        }
+
+        function spawnCoin() {
+          const lane = Math.floor(Math.random() * laneCount);
+          const x = roadLeft + lane * laneWidth + laneWidth / 2;
+          coins.push({
+            x,
+            y: -24,
+            r: 14,
+            pulse: Math.random() * Math.PI * 2
+          });
+        }
+
+        function rectsOverlap(a, b) {
+          return (
+            a.x + 5 < b.x + b.w - 5 &&
+            a.x + a.w - 5 > b.x + 5 &&
+            a.y + 6 < b.y + b.h - 6 &&
+            a.y + a.h - 6 > b.y + 6
+          );
+        }
+
+        function update() {
+          baseSpeed = Math.min(12.5, 5.4 + runtime.score * 0.008);
+          roadScroll = (roadScroll + baseSpeed) % 60;
+
+          const moveLeft = runtime.keys['ArrowLeft'] || runtime.keys['KeyA'] || runtime.keys['pad-left'];
+          const moveRight = runtime.keys['ArrowRight'] || runtime.keys['KeyD'] || runtime.keys['pad-right'];
+
+          if (moveLeft) car.x -= car.speed;
+          if (moveRight) car.x += car.speed;
+
+          car.x = Math.max(roadLeft + 8, Math.min(roadLeft + roadWidth - car.w - 8, car.x));
+
+          spawnTimer--;
+          if (spawnTimer <= 0) {
+            spawnTrafficCar();
+            spawnTimer = Math.max(24, 54 - Math.floor(runtime.score / 35));
+          }
+
+          coinTimer--;
+          if (coinTimer <= 0) {
+            spawnCoin();
+            coinTimer = 75 + Math.floor(Math.random() * 40);
+          }
+
+          for (let i = traffic.length - 1; i >= 0; i--) {
+            const t = traffic[i];
+            t.y += t.speed;
+
+            if (!t.passed && t.y > car.y + car.h) {
+              t.passed = true;
+              addScore(15, t.x + t.w / 2, car.y - 10, '#38bdf8');
+            }
+
+            if (rectsOverlap(car, t)) {
+              spawnBurst(car.x + car.w / 2, car.y + car.h / 2, '#ef4444', 24, 1.4);
+              triggerGameOver(`Crashed into traffic at ${runtime.score} points!`);
+              return;
+            }
+
+            if (t.y > STAGE_H + 100) {
+              traffic.splice(i, 1);
+            }
+          }
+
+          for (let i = coins.length - 1; i >= 0; i--) {
+            const c = coins[i];
+            c.y += baseSpeed * 0.9;
+            c.pulse += 0.14;
+
+            const dx = (car.x + car.w / 2) - c.x;
+            const dy = (car.y + car.h / 2) - c.y;
+            if (Math.hypot(dx, dy) < c.r + 24) {
+              spawnBurst(c.x, c.y, '#fbbf24', 12, 0.9);
+              addScore(30, c.x, c.y - 8, '#fbbf24');
+              coins.splice(i, 1);
+              continue;
+            }
+
+            if (c.y > STAGE_H + 40) {
+              coins.splice(i, 1);
+            }
+          }
+        }
+
+        function drawCarSprite(x, y, w, h, mainColor, isPlayer) {
+          ctx.save();
+          // Shadow
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          ctx.beginPath();
+          ctx.roundRect(x + 4, y + 6, w, h, 10);
+          ctx.fill();
+
+          // Car body
+          ctx.fillStyle = mainColor;
+          ctx.beginPath();
+          ctx.roundRect(x, y, w, h, 10);
+          ctx.fill();
+
+          // Windshield & cabin
+          ctx.fillStyle = '#0f172a';
+          ctx.beginPath();
+          ctx.roundRect(x + 7, y + (isPlayer ? 16 : 12), w - 14, h * 0.44, 6);
+          ctx.fill();
+
+          // Racing stripe / highlights
+          ctx.fillStyle = isPlayer ? '#e0f2fe' : 'rgba(255,255,255,0.25)';
+          ctx.fillRect(x + w / 2 - 3, y + 5, 6, 9);
+
+          // Headlights / taillights
+          ctx.fillStyle = isPlayer ? '#fef08a' : '#fda4af';
+          ctx.fillRect(x + 6, y + (isPlayer ? 2 : h - 7), 8, 5);
+          ctx.fillRect(x + w - 14, y + (isPlayer ? 2 : h - 7), 8, 5);
+          ctx.restore();
+        }
+
+        function draw() {
+          // Off-road shoulders
+          ctx.fillStyle = '#07131f';
+          ctx.fillRect(0, 0, STAGE_W, STAGE_H);
+
+          // Neon shoulder lines
+          ctx.fillStyle = '#0284c7';
+          ctx.fillRect(roadLeft - 6, 0, 6, STAGE_H);
+          ctx.fillRect(roadLeft + roadWidth, 0, 6, STAGE_H);
+
+          // Asphalt
+          ctx.fillStyle = '#141c2b';
+          ctx.fillRect(roadLeft, 0, roadWidth, STAGE_H);
+
+          // Animated lane dividers
+          ctx.strokeStyle = 'rgba(226, 232, 240, 0.42)';
+          ctx.lineWidth = 3;
+          ctx.setLineDash([28, 32]);
+          ctx.lineDashOffset = -roadScroll;
+
+          for (let l = 1; l < laneCount; l++) {
+            const lx = roadLeft + l * laneWidth;
+            ctx.beginPath();
+            ctx.moveTo(lx, -60);
+            ctx.lineTo(lx, STAGE_H + 60);
+            ctx.stroke();
+          }
+          ctx.setLineDash([]);
+
+          // Boost coins
+          for (const c of coins) {
+            const scaleX = 0.75 + Math.abs(Math.cos(c.pulse)) * 0.25;
+            ctx.save();
+            ctx.translate(c.x, c.y);
+            ctx.scale(scaleX, 1);
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath();
+            ctx.arc(0, 0, c.r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fef08a';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+            ctx.fillStyle = '#fef9c3';
+            ctx.font = '800 13px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('$', 0, 1);
+            ctx.restore();
+          }
+
+          // Traffic cars
+          for (const t of traffic) {
+            drawCarSprite(t.x, t.y, t.w, t.h, t.color, false);
+          }
+
+          // Player sports car
+          drawCarSprite(car.x, car.y, car.w, car.h, '#0ea5e9', true);
+
+          // Speed badge top-left
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+          ctx.beginPath();
+          ctx.roundRect(14, 14, 142, 34, 8);
+          ctx.fill();
+          ctx.fillStyle = '#38bdf8';
+          ctx.font = '700 13px "JetBrains Mono", monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText(`SPEED: ${Math.round(baseSpeed * 24)} KM/H`, 24, 36);
+        }
+
+        return { init, update, draw };
+      })();
+
+      // =========================================================================
+      // GAME 2: NEON SNAKE (Classic Grid Crawler + Bonus Stars)
+      // =========================================================================
+      const snakeGame = (() => {
+        const cellSize = 30;
+        const cols = Math.floor(STAGE_W / cellSize); // 26
+        const rows = Math.floor(STAGE_H / cellSize); // 15
+        const offsetX = Math.floor((STAGE_W - cols * cellSize) / 2);
+        const offsetY = Math.floor((STAGE_H - rows * cellSize) / 2);
+
+        let snake = [];
+        let dir = { x: 1, y: 0 };
+        let nextDir = { x: 1, y: 0 };
+        let food = { x: 16, y: 7 };
+        let bonusFood = null;
+        let bonusTimer = 0;
+        let moveTick = 0;
+        let moveInterval = 8;
+
+        function placeFood() {
+          let candidate;
+          let attempts = 0;
+          do {
+            candidate = {
+              x: Math.floor(Math.random() * cols),
+              y: Math.floor(Math.random() * rows)
+            };
+            attempts++;
+          } while (attempts < 200 && snake.some(seg => seg.x === candidate.x && seg.y === candidate.y));
+          food = candidate;
+        }
+
+        function init() {
+          const midX = Math.floor(cols / 2);
+          const midY = Math.floor(rows / 2);
+          snake = [
+            { x: midX, y: midY },
+            { x: midX - 1, y: midY },
+            { x: midX - 2, y: midY }
+          ];
+          dir = { x: 1, y: 0 };
+          nextDir = { x: 1, y: 0 };
+          bonusFood = null;
+          bonusTimer = 0;
+          moveTick = 0;
+          moveInterval = 8;
+          placeFood();
+        }
+
+        function setDirection(nx, ny) {
+          // Prevent 180-degree instant self-reversal
+          if (nx === -dir.x && ny === -dir.y) return;
+          if (nx === 0 && ny === 0) return;
+          nextDir = { x: nx, y: ny };
+        }
+
+        function handleInputQueue() {
+          if (runtime.keys['ArrowUp'] || runtime.keys['KeyW'] || runtime.keys['pad-up']) {
+            setDirection(0, -1);
+          } else if (runtime.keys['ArrowDown'] || runtime.keys['KeyS'] || runtime.keys['pad-down']) {
+            setDirection(0, 1);
+          } else if (runtime.keys['ArrowLeft'] || runtime.keys['KeyA'] || runtime.keys['pad-left']) {
+            setDirection(-1, 0);
+          } else if (runtime.keys['ArrowRight'] || runtime.keys['KeyD'] || runtime.keys['pad-right']) {
+            setDirection(1, 0);
+          }
+        }
+
+        function update() {
+          handleInputQueue();
+          moveTick++;
+
+          if (bonusFood) {
+            bonusTimer--;
+            if (bonusTimer <= 0) bonusFood = null;
+          }
+
+          if (moveTick < moveInterval) return;
+          moveTick = 0;
+
+          dir = { ...nextDir };
+          const head = snake[0];
+          const newHead = { x: head.x + dir.x, y: head.y + dir.y };
+
+          // Wall collision check
+          if (newHead.x < 0 || newHead.x >= cols || newHead.y < 0 || newHead.y >= rows) {
+            const px = offsetX + head.x * cellSize + cellSize / 2;
+            const py = offsetY + head.y * cellSize + cellSize / 2;
+            spawnBurst(px, py, '#ef4444', 20, 1.2);
+            triggerGameOver(`Hit the arena wall with a score of ${runtime.score}!`);
+            return;
+          }
+
+          // Self collision check
+          if (snake.some(seg => seg.x === newHead.x && seg.y === newHead.y)) {
+            const px = offsetX + newHead.x * cellSize + cellSize / 2;
+            const py = offsetY + newHead.y * cellSize + cellSize / 2;
+            spawnBurst(px, py, '#f43f5e', 20, 1.2);
+            triggerGameOver(`Collided with your own tail at ${runtime.score} points!`);
+            return;
+          }
+
+          snake.unshift(newHead);
+
+          const ateFood = newHead.x === food.x && newHead.y === food.y;
+          const ateBonus = bonusFood && newHead.x === bonusFood.x && newHead.y === bonusFood.y;
+
+          if (ateFood) {
+            const fx = offsetX + food.x * cellSize + cellSize / 2;
+            const fy = offsetY + food.y * cellSize + cellSize / 2;
+            spawnBurst(fx, fy, '#34d399', 14, 1.0);
+            addScore(20, fx, fy - 6, '#34d399');
+            moveInterval = Math.max(4, 8 - Math.floor(runtime.score / 120));
+            placeFood();
+
+            if (!bonusFood && Math.random() < 0.35) {
+              bonusFood = {
+                x: Math.floor(Math.random() * cols),
+                y: Math.floor(Math.random() * rows)
+              };
+              bonusTimer = 95;
+            }
+          } else if (ateBonus) {
+            const bx = offsetX + bonusFood.x * cellSize + cellSize / 2;
+            const by = offsetY + bonusFood.y * cellSize + cellSize / 2;
+            spawnBurst(bx, by, '#fbbf24', 18, 1.2);
+            addScore(50, bx, by - 6, '#fbbf24');
+            bonusFood = null;
+          } else {
+            snake.pop();
+          }
+        }
+
+        function draw() {
+          ctx.fillStyle = '#060c18';
+          ctx.fillRect(0, 0, STAGE_W, STAGE_H);
+
+          // Crisp grid cells
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+          ctx.lineWidth = 1;
+          for (let c = 0; c <= cols; c++) {
+            const gx = offsetX + c * cellSize;
+            ctx.beginPath();
+            ctx.moveTo(gx, offsetY);
+            ctx.lineTo(gx, offsetY + rows * cellSize);
+            ctx.stroke();
+          }
+          for (let r = 0; r <= rows; r++) {
+            const gy = offsetY + r * cellSize;
+            ctx.beginPath();
+            ctx.moveTo(offsetX, gy);
+            ctx.lineTo(offsetX + cols * cellSize, gy);
+            ctx.stroke();
+          }
+
+          // Arena border
+          ctx.strokeStyle = 'rgba(52, 211, 153, 0.55)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(offsetX, offsetY, cols * cellSize, rows * cellSize);
+
+          // Standard food
+          const fx = offsetX + food.x * cellSize + cellSize / 2;
+          const fy = offsetY + food.y * cellSize + cellSize / 2;
+          ctx.save();
+          ctx.fillStyle = '#10b981';
+          ctx.shadowColor = '#34d399';
+          ctx.shadowBlur = 14;
+          ctx.beginPath();
+          ctx.arc(fx, fy, cellSize * 0.36, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          // Bonus star food
+          if (bonusFood) {
+            const bx = offsetX + bonusFood.x * cellSize + cellSize / 2;
+            const by = offsetY + bonusFood.y * cellSize + cellSize / 2;
+            ctx.save();
+            ctx.fillStyle = '#fbbf24';
+            ctx.shadowColor = '#f59e0b';
+            ctx.shadowBlur = 16;
+            ctx.beginPath();
+            ctx.arc(bx, by, cellSize * 0.42, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#0f172a';
+            ctx.font = '900 12px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('★', bx, by + 0.5);
+            ctx.restore();
+          }
+
+          // Snake body & head
+          snake.forEach((seg, index) => {
+            const sx = offsetX + seg.x * cellSize + 2;
+            const sy = offsetY + seg.y * cellSize + 2;
+            const size = cellSize - 4;
+            const isHead = index === 0;
+
+            ctx.fillStyle = isHead ? '#6ee7b7' : index % 2 === 0 ? '#059669' : '#047857';
+            ctx.beginPath();
+            ctx.roundRect(sx, sy, size, size, isHead ? 8 : 6);
+            ctx.fill();
+
+            if (isHead) {
+              ctx.fillStyle = '#020617';
+              ctx.beginPath();
+              ctx.arc(sx + size * 0.35, sy + size * 0.38, 3, 0, Math.PI * 2);
+              ctx.arc(sx + size * 0.7, sy + size * 0.38, 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          });
+        }
+
+        return { init, update, draw };
+      })();
+
+      // =========================================================================
+      // GAME 3: BRICK SMASH (Classic Arkanoid / Brick Breaker)
+      // =========================================================================
+      const brickGame = (() => {
+        const paddle = { w: 120, h: 16, x: STAGE_W / 2 - 60, y: STAGE_H - 36, speed: 8.5 };
+        const ball = { x: STAGE_W / 2, y: STAGE_H - 58, r: 10, vx: 4.5, vy: -4.8 };
+        let bricks = [];
+        const brickRows = 5;
+        const brickCols = 9;
+        const rowColors = ['#f43f5e', '#fb923c', '#facc15', '#34d399', '#38bdf8'];
+
+        function buildBricks() {
+          bricks = [];
+          const marginX = 44;
+          const gapX = 10;
+          const usableW = STAGE_W - marginX * 2 - gapX * (brickCols - 1);
+          const bw = usableW / brickCols;
+          const bh = 24;
+          const topOffset = 54;
+          const gapY = 10;
+
+          for (let r = 0; r < brickRows; r++) {
+            for (let c = 0; c < brickCols; c++) {
+              bricks.push({
+                x: marginX + c * (bw + gapX),
+                y: topOffset + r * (bh + gapY),
+                w: bw,
+                h: bh,
+                color: rowColors[r % rowColors.length],
+                alive: true
+              });
+            }
+          }
+        }
+
+        function init() {
+          paddle.x = STAGE_W / 2 - paddle.w / 2;
+          ball.x = STAGE_W / 2;
+          ball.y = STAGE_H - 58;
+          const angle = (-Math.PI / 3) + (Math.random() - 0.5) * 0.35;
+          const speed = 5.8;
+          ball.vx = Math.cos(angle) * speed;
+          ball.vy = -Math.abs(Math.sin(angle) * speed);
+          buildBricks();
+        }
+
+        function setPaddleCenterFromStageX(stageX) {
+          paddle.x = Math.max(12, Math.min(STAGE_W - paddle.w - 12, stageX - paddle.w / 2));
+        }
+
+        function update() {
+          const moveLeft = runtime.keys['ArrowLeft'] || runtime.keys['KeyA'] || runtime.keys['pad-left'];
+          const moveRight = runtime.keys['ArrowRight'] || runtime.keys['KeyD'] || runtime.keys['pad-right'];
+
+          if (moveLeft) paddle.x -= paddle.speed;
+          if (moveRight) paddle.x += paddle.speed;
+          paddle.x = Math.max(12, Math.min(STAGE_W - paddle.w - 12, paddle.x));
+
+          ball.x += ball.vx;
+          ball.y += ball.vy;
+
+          // Side walls
+          if (ball.x - ball.r <= 10) {
+            ball.x = 10 + ball.r;
+            ball.vx = Math.abs(ball.vx);
+          } else if (ball.x + ball.r >= STAGE_W - 10) {
+            ball.x = STAGE_W - 10 - ball.r;
+            ball.vx = -Math.abs(ball.vx);
+          }
+
+          // Top wall
+          if (ball.y - ball.r <= 10) {
+            ball.y = 10 + ball.r;
+            ball.vy = Math.abs(ball.vy);
+          }
+
+          // Paddle bounce with angle control
+          if (
+            ball.vy > 0 &&
+            ball.y + ball.r >= paddle.y &&
+            ball.y - ball.r <= paddle.y + paddle.h &&
+            ball.x >= paddle.x - 4 &&
+            ball.x <= paddle.x + paddle.w + 4
+          ) {
+            const hitRatio = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+            const clamped = Math.max(-0.9, Math.min(0.9, hitRatio));
+            const maxAngle = (62 * Math.PI) / 180;
+            const bounceAngle = clamped * maxAngle;
+            const currentSpeed = Math.min(9.5, Math.hypot(ball.vx, ball.vy) * 1.03);
+
+            ball.vx = currentSpeed * Math.sin(bounceAngle);
+            ball.vy = -currentSpeed * Math.cos(bounceAngle);
+            ball.y = paddle.y - ball.r - 1;
+            spawnBurst(ball.x, paddle.y, '#38bdf8', 8, 0.7);
+          }
+
+          // Brick collisions
+          for (const b of bricks) {
+            if (!b.alive) continue;
+            if (
+              ball.x + ball.r > b.x &&
+              ball.x - ball.r < b.x + b.w &&
+              ball.y + ball.r > b.y &&
+              ball.y - ball.r < b.y + b.h
+            ) {
+              b.alive = false;
+              ball.vy = -ball.vy;
+              spawnBurst(b.x + b.w / 2, b.y + b.h / 2, b.color, 12, 0.95);
+              addScore(25, b.x + b.w / 2, b.y + b.h / 2, b.color);
+              break;
+            }
+          }
+
+          // Respawn fresh colorful wall when cleared for bonus points
+          if (bricks.every(b => !b.alive)) {
+            addScore(100, STAGE_W / 2, STAGE_H / 2, '#fbbf24');
+            buildBricks();
+            ball.x = STAGE_W / 2;
+            ball.y = STAGE_H - 65;
+            ball.vy = -Math.abs(ball.vy);
+          }
+
+          // Bottom out
+          if (ball.y - ball.r > STAGE_H + 10) {
+            spawnBurst(ball.x, STAGE_H - 20, '#f43f5e', 20, 1.2);
+            triggerGameOver(`Ball missed! Final Brick Smash score: ${runtime.score}.`);
+          }
+        }
+
+        function draw() {
+          ctx.fillStyle = '#070b17';
+          ctx.fillRect(0, 0, STAGE_W, STAGE_H);
+
+          // Subtle arcade frame
+          ctx.strokeStyle = 'rgba(244, 114, 182, 0.25)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(10, 10, STAGE_W - 20, STAGE_H - 20);
+
+          // Bricks
+          for (const b of bricks) {
+            if (!b.alive) continue;
+            ctx.fillStyle = b.color;
+            ctx.beginPath();
+            ctx.roundRect(b.x, b.y, b.w, b.h, 6);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+            ctx.fillRect(b.x + 3, b.y + 2, b.w - 6, 4);
+          }
+
+          // Paddle
+          ctx.save();
+          ctx.fillStyle = '#38bdf8';
+          ctx.shadowColor = '#38bdf8';
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.roundRect(paddle.x, paddle.y, paddle.w, paddle.h, 8);
+          ctx.fill();
+          ctx.restore();
+
+          // Ball
+          ctx.save();
+          ctx.fillStyle = '#fef08a';
+          ctx.shadowColor = '#facc15';
+          ctx.shadowBlur = 14;
+          ctx.beginPath();
+          ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        return { init, update, draw, setPaddleCenterFromStageX };
+      })();
+
+      // =========================================================================
+      // GAME 4: SKY HOPPER (Classic Pillar Flap Dodger)
+      // =========================================================================
+      const hopperGame = (() => {
+        let craft = { x: 155, y: STAGE_H / 2, r: 18, vy: 0 };
+        const gravity = 0.42;
+        const hopImpulse = -7.8;
+        let pillars = [];
+        let spawnCounter = 0;
+        const pillarWidth = 66;
+        const gapHeight = 148;
+        let pillarSpeed = 3.8;
+
+        function init() {
+          craft = { x: 155, y: STAGE_H / 2, r: 18, vy: -2 };
+          pillars = [];
+          spawnCounter = 35;
+          pillarSpeed = 3.8;
+        }
+
+        function hop() {
+          if (runtime.phase !== 'playing') return;
+          craft.vy = hopImpulse;
+          spawnBurst(craft.x - 10, craft.y + 8, '#c084fc', 7, 0.65);
+        }
+
+        function spawnPillar() {
+          const minTop = 50;
+          const maxTop = STAGE_H - gapHeight - 50;
+          const gapTop = minTop + Math.random() * (maxTop - minTop);
+          pillars.push({
+            x: STAGE_W + 20,
+            gapTop,
+            gapBottom: gapTop + gapHeight,
+            passed: false
+          });
+        }
+
+        function update() {
+          pillarSpeed = Math.min(6.6, 3.8 + runtime.score * 0.004);
+          craft.vy += gravity;
+          craft.y += craft.vy;
+
+          // Ceiling & floor bounds
+          if (craft.y - craft.r < 6) {
+            craft.y = 6 + craft.r;
+            craft.vy = 0;
+          }
+          if (craft.y + craft.r > STAGE_H - 12) {
+            spawnBurst(craft.x, craft.y, '#a78bfa', 20, 1.2);
+            triggerGameOver(`Dropped to the deck at ${runtime.score} points!`);
+            return;
+          }
+
+          spawnCounter--;
+          if (spawnCounter <= 0) {
+            spawnPillar();
+            spawnCounter = 88;
+          }
+
+          for (let i = pillars.length - 1; i >= 0; i--) {
+            const p = pillars[i];
+            p.x -= pillarSpeed;
+
+            if (!p.passed && p.x + pillarWidth < craft.x) {
+              p.passed = true;
+              addScore(20, craft.x, craft.y - 22, '#c084fc');
+            }
+
+            // Collision with top or bottom pillar
+            const hitX = craft.x + craft.r - 3 > p.x && craft.x - craft.r + 3 < p.x + pillarWidth;
+            const hitTop = craft.y - craft.r + 3 < p.gapTop;
+            const hitBottom = craft.y + craft.r - 3 > p.gapBottom;
+
+            if (hitX && (hitTop || hitBottom)) {
+              spawnBurst(craft.x, craft.y, '#f43f5e', 22, 1.3);
+              triggerGameOver(`Clipped a sky pillar with a score of ${runtime.score}!`);
+              return;
+            }
+
+            if (p.x + pillarWidth < -40) {
+              pillars.splice(i, 1);
+            }
+          }
+        }
+
+        function draw() {
+          // Starlit sky backdrop
+          const grad = ctx.createLinearGradient(0, 0, 0, STAGE_H);
+          grad.addColorStop(0, '#090d1e');
+          grad.addColorStop(1, '#181033');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, STAGE_W, STAGE_H);
+
+          // Ground strip
+          ctx.fillStyle = '#312e81';
+          ctx.fillRect(0, STAGE_H - 12, STAGE_W, 12);
+
+          // Pillars
+          for (const p of pillars) {
+            ctx.fillStyle = '#7c3aed';
+            ctx.fillRect(p.x, 0, pillarWidth, p.gapTop);
+            ctx.fillRect(p.x, p.gapBottom, pillarWidth, STAGE_H - p.gapBottom - 12);
+
+            // Neon caps around gap
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillRect(p.x - 4, p.gapTop - 12, pillarWidth + 8, 12);
+            ctx.fillRect(p.x - 4, p.gapBottom, pillarWidth + 8, 12);
+          }
+
+          // Hopper craft
+          ctx.save();
+          ctx.translate(craft.x, craft.y);
+          const tilt = Math.max(-0.45, Math.min(0.65, craft.vy * 0.06));
+          ctx.rotate(tilt);
+
+          ctx.fillStyle = '#f472b6';
+          ctx.beginPath();
+          ctx.roundRect(-craft.r, -craft.r * 0.78, craft.r * 2, craft.r * 1.56, 12);
+          ctx.fill();
+
+          // Cockpit window
+          ctx.fillStyle = '#e0f2fe';
+          ctx.beginPath();
+          ctx.arc(5, -2, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        return { init, update, draw, hop };
+      })();
+
+      // =========================================================================
+      // GAME 5: AIM BLITZ (Classic 30s Timed Target Reflex Arcade)
+      // =========================================================================
+      const blitzGame = (() => {
+        const durationSeconds = 30;
+        let timeLeft = durationSeconds;
+        let lastFrameTime = 0;
+        let targets = [];
+        let spawnCooldown = 0;
+
+        function init() {
+          timeLeft = durationSeconds;
+          lastFrameTime = performance.now();
+          targets = [];
+          spawnCooldown = 0;
+          spawnTarget(false);
+          spawnTarget(true);
+        }
+
+        function spawnTarget(forceGolden = false) {
+          const isGolden = forceGolden || Math.random() < 0.28;
+          const r = isGolden ? 22 : 28 + Math.random() * 8;
+          const pad = r + 24;
+          const x = pad + Math.random() * (STAGE_W - pad * 2);
+          const y = 56 + pad + Math.random() * (STAGE_H - 76 - pad * 2);
+          const angle = Math.random() * Math.PI * 2;
+          const speed = isGolden ? 2.4 : 1.2 + Math.random() * 1.1;
+
+          targets.push({
+            x,
+            y,
+            r,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            isGolden,
+            life: isGolden ? 140 : 210,
+            maxLife: isGolden ? 140 : 210
+          });
+        }
+
+        function handleCanvasClick(stageX, stageY) {
+          if (runtime.phase !== 'playing') return;
+
+          // Check topmost target first
+          for (let i = targets.length - 1; i >= 0; i--) {
+            const t = targets[i];
+            const dist = Math.hypot(stageX - t.x, stageY - t.y);
+            if (dist <= t.r + 4) {
+              const pts = t.isGolden ? 50 : 20;
+              const color = t.isGolden ? '#fbbf24' : '#38bdf8';
+              spawnBurst(t.x, t.y, color, 16, 1.15);
+              addScore(pts, t.x, t.y - 8, color);
+              targets.splice(i, 1);
+              return;
+            }
+          }
+
+          // Miss penalty
+          addScore(-10, stageX, stageY - 6, '#f87171');
+          spawnBurst(stageX, stageY, '#f87171', 6, 0.5);
+        }
+
+        function update() {
+          const now = performance.now();
+          const dt = Math.min(0.1, (now - lastFrameTime) / 1000);
+          lastFrameTime = now;
+
+          timeLeft = Math.max(0, timeLeft - dt);
+          if (timeLeft <= 0) {
+            triggerGameOver(`Time's up! You scored ${runtime.score} points in Aim Blitz!`);
+            return;
+          }
+
+          spawnCooldown--;
+          if (spawnCooldown <= 0 && targets.length < 7) {
+            spawnTarget(false);
+            spawnCooldown = 28;
+          }
+
+          for (let i = targets.length - 1; i >= 0; i--) {
+            const t = targets[i];
+            t.x += t.vx;
+            t.y += t.vy;
+            t.life--;
+
+            if (t.x - t.r < 16 || t.x + t.r > STAGE_W - 16) t.vx *= -1;
+            if (t.y - t.r < 54 || t.y + t.r > STAGE_H - 16) t.vy *= -1;
+
+            if (t.life <= 0) {
+              targets.splice(i, 1);
+            }
+          }
+        }
+
+        function draw() {
+          ctx.fillStyle = '#080d1a';
+          ctx.fillRect(0, 0, STAGE_W, STAGE_H);
+
+          // Range grid
+          ctx.strokeStyle = 'rgba(251, 191, 36, 0.08)';
+          ctx.lineWidth = 1;
+          for (let x = 40; x < STAGE_W; x += 40) {
+            ctx.beginPath();
+            ctx.moveTo(x, 48);
+            ctx.lineTo(x, STAGE_H);
+            ctx.stroke();
+          }
+
+          // Top timer bar
+          const pct = timeLeft / durationSeconds;
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+          ctx.fillRect(0, 0, STAGE_W, 46);
+          ctx.fillStyle = timeLeft <= 6 ? '#ef4444' : '#fbbf24';
+          ctx.fillRect(0, 42, STAGE_W * pct, 4);
+
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = '800 15px "JetBrains Mono", monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText(`TIME LEFT: ${timeLeft.toFixed(1)}s`, 18, 28);
+
+          ctx.textAlign = 'right';
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillText(`TARGETS: ${targets.length}`, STAGE_W - 18, 28);
+
+          // Targets
+          for (const t of targets) {
+            const pulse = 0.8 + 0.2 * Math.sin(t.life * 0.2);
+            ctx.save();
+            ctx.translate(t.x, t.y);
+
+            // Outer ring
+            ctx.strokeStyle = t.isGolden ? '#fbbf24' : '#38bdf8';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, 0, t.r * pulse, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Inner bullseye
+            ctx.fillStyle = t.isGolden ? 'rgba(251, 191, 36, 0.28)' : 'rgba(56, 189, 248, 0.22)';
+            ctx.beginPath();
+            ctx.arc(0, 0, t.r * 0.72, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = t.isGolden ? '#fef08a' : '#e0f2fe';
+            ctx.beginPath();
+            ctx.arc(0, 0, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+          }
+        }
+
+        return { init, update, draw, handleCanvasClick };
+      })();
+
+      const GAME_MODULES = {
+        turbo: turboGame,
+        snake: snakeGame,
+        brick: brickGame,
+        hopper: hopperGame,
+        blitz: blitzGame
+      };
+
+      // Switch active game & reset stage to ready state
+      function selectGame(gameId, autoStart = false) {
+        if (!GAME_MODULES[gameId]) return;
+        currentGameId = gameId;
+        runtime.score = 0;
+        runtime.particles = [];
+        runtime.floatingTexts = [];
+        runtime.phase = 'idle';
+
+        // Update active tab styling via jQuery
+        $('.game-tab-btn').removeClass('active-game');
+        $(`.game-tab-btn[data-game="${gameId}"]`).addClass('active-game');
+
+        const meta = GAME_META[gameId];
+        $('#active-game-title').text(meta.name);
+        $('#active-game-subtitle').text(meta.subtitle);
+        $('#active-game-rules').html(meta.rules);
+        $('#active-game-controls-hint').text(meta.controlsHint);
+
+        // Toggle appropriate on-screen arcade pad
+        $('#pad-leftright, #pad-dpad, #pad-flap, #pad-blitz').addClass('hidden');
+        $(`#pad-${meta.padType}`).removeClass('hidden');
+
+        GAME_MODULES[currentGameId].init();
+        refreshAnalytics();
+        syncHud();
+
+        if (autoStart) {
+          startCurrentGame();
+        } else {
+          showOverlay(
+            'ARCADE READY',
+            meta.name,
+            'Press START GAME or hit Space / Arrow keys to play.',
+            'START GAME',
+            false
+          );
+        }
+      }
+
+      function startCurrentGame() {
+        if (runtime.phase === 'gameover' || runtime.phase === 'idle') {
+          runtime.score = 0;
+          runtime.particles = [];
+          runtime.floatingTexts = [];
+          GAME_MODULES[currentGameId].init();
+        }
+        runtime.phase = 'playing';
+        hideOverlay();
+        syncHud();
+      }
+
+      function restartCurrentGame() {
+        runtime.score = 0;
+        runtime.particles = [];
+        runtime.floatingTexts = [];
+        GAME_MODULES[currentGameId].init();
+        runtime.phase = 'playing';
+        hideOverlay();
+        syncHud();
+      }
+
+      function togglePauseGame() {
+        if (runtime.phase === 'playing') {
+          runtime.phase = 'paused';
+          syncHud();
+          showOverlay('GAME PAUSED', GAME_META[currentGameId].name, 'Take a breather — resume whenever ready.', 'RESUME', false);
+        } else if (runtime.phase === 'paused') {
+          runtime.phase = 'playing';
+          hideOverlay();
+          syncHud();
+        }
+      }
+
+      // Main 60fps animation loop
+      function gameLoop() {
+        try {
+          if (runtime.phase === 'playing') {
+            GAME_MODULES[currentGameId].update();
+            updateEffects();
+          }
+
+          GAME_MODULES[currentGameId].draw();
+          drawEffects();
+        } catch (err) {
+          console.error('Game loop error:', err);
+        }
+        requestAnimationFrame(gameLoop);
+      }
+
+      // Convert client pointer/touch coordinates to logical canvas coordinates
+      function getCanvasCoords(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = STAGE_W / rect.width;
+        const scaleY = STAGE_H / rect.height;
+        return {
+          x: (clientX - rect.left) * scaleX,
+          y: (clientY - rect.top) * scaleY
+        };
+      }
+
+      // Bind UI & Input Listeners via jQuery
+      $(function () {
+        // Game switcher buttons
+        $('#game-switcher').on('click', '.game-tab-btn', function () {
+          const targetGame = $(this).data('game');
+          selectGame(targetGame, false);
+        });
+
+        // Overlay start/resume/retry button
+        $('#btn-overlay-action').on('click', function () {
+          if (runtime.phase === 'paused') {
+            togglePauseGame();
+          } else {
+            startCurrentGame();
+          }
+        });
+
+        // Pause & Restart buttons
+        $('#btn-pause-toggle').on('click', togglePauseGame);
+        $('#btn-restart-game').on('click', restartCurrentGame);
+
+        // Reset high scores & analytics
+        $('#btn-reset-records').on('click', function () {
+          appState = {
+            highScores: { turbo: 0, snake: 0, brick: 0, hopper: 0, blitz: 0 },
+            totalPlays: 0,
+            history: [
+              { run: 1, game: 'Turbo Lane', score: 0 },
+              { run: 2, game: 'Neon Snake', score: 0 },
+              { run: 3, game: 'Brick Smash', score: 0 },
+              { run: 4, game: 'Sky Hopper', score: 0 },
+              { run: 5, game: 'Aim Blitz', score: 0 }
+            ]
+          };
+          runCounter = 5;
+          savePersistentState();
+          refreshAnalytics();
+          syncHud();
+          showToast('All high scores and chart history reset.');
+        });
+
+        // On-screen arcade buttons (mouse + touch)
+        $('.arcade-pad-btn').on('pointerdown', function (e) {
+          e.preventDefault();
+          const padDir = $(this).data('pad');
+          $(this).addClass('pressed');
+
+          if (runtime.phase === 'idle' || runtime.phase === 'gameover') {
+            startCurrentGame();
+          }
+
+          if (padDir === 'flap' && currentGameId === 'hopper') {
+            hopperGame.hop();
+          } else {
+            runtime.keys[`pad-${padDir}`] = true;
+          }
+        }).on('pointerup pointerleave pointercancel', function () {
+          const padDir = $(this).data('pad');
+          $(this).removeClass('pressed');
+          runtime.keys[`pad-${padDir}`] = false;
+        });
+
+        // Canvas pointer/touch interactions (Brick Smash paddle & Sky Hopper flap & Aim Blitz targets)
+        canvas.addEventListener('pointermove', function (e) {
+          if (currentGameId === 'brick' && runtime.phase === 'playing') {
+            const pt = getCanvasCoords(e.clientX, e.clientY);
+            brickGame.setPaddleCenterFromStageX(pt.x);
+          }
+        });
+
+        canvas.addEventListener('pointerdown', function (e) {
+          const pt = getCanvasCoords(e.clientX, e.clientY);
+          if (currentGameId === 'brick' && runtime.phase === 'playing') {
+            brickGame.setPaddleCenterFromStageX(pt.x);
+          } else if (currentGameId === 'hopper' && runtime.phase === 'playing') {
+            hopperGame.hop();
+          } else if (currentGameId === 'blitz' && runtime.phase === 'playing') {
+            blitzGame.handleCanvasClick(pt.x, pt.y);
+          }
+        });
+
+        // Keyboard controls
+        window.addEventListener('keydown', function (e) {
+          const controlKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'];
+          if (controlKeys.includes(e.code)) {
+            e.preventDefault();
+          }
+
+          if (e.code === 'KeyP') {
+            togglePauseGame();
+            return;
+          }
+
+          if (e.code === 'KeyR') {
+            restartCurrentGame();
+            return;
+          }
+
+          if ((runtime.phase === 'idle' || runtime.phase === 'gameover') && (e.code === 'Space' || e.code === 'Enter')) {
+            startCurrentGame();
+            return;
+          }
+
+          runtime.keys[e.code] = true;
+
+          if (currentGameId === 'hopper' && (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW')) {
+            hopperGame.hop();
+          }
+        });
+
+        window.addEventListener('keyup', function (e) {
+          runtime.keys[e.code] = false;
+        });
+
+        // Initialize first game & charts
+        selectGame('turbo', false);
+        refreshAnalytics();
+        requestAnimationFrame(gameLoop);
+      });
+    })(jQuery);
+  </script>
+</body>
+</html>
